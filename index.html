@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>T. Hall Hydraulics — AI Growth OS</title>
+<title>T. Hall Hydraulics — WanderBrief</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -1294,7 +1294,7 @@ document.getElementById('pw-input').focus();
 <div class="hero">
   <div class="hero-eyebrow">Business Support Package · April 2026</div>
   <h1>The <span>T. Hall Hydraulics</span></h1>
-  <p class="hero-sub">A full AI Growth OS for T. Hall Hydraulics: fleet contracts, grants, TikTok growth, and your 90-day path to $50K/month.</p>
+  <p class="hero-sub">A free WanderBrief for T. Hall Hydraulics: fleet contracts, grants, TikTok growth, and your 90-day path to $50K/month.</p>
   <div class="hero-badges">
     <span class="badge">8+ Years</span>
     <span class="badge">Mansfield, TX</span>
@@ -1934,7 +1934,7 @@ document.getElementById('pw-input').focus();
         </div>
         <p>Best for long documents, grant writing, and structured analysis. Free tier is generous. No account required for basic use.</p>
         <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:rgba(255,255,255,0.4);margin-bottom:6px;">Copy this prompt to get started:</div>
-        <div class="ai-prompt-box" id="claude-prompt">I run T. Hall Hydraulics, a Mobile Hydraulics Repair business in Mansfield, TX. A full AI Growth OS for T. Hall Hydraulics: fleet contracts, grants, TikTok growth, and your 90-day path to $50K/month. What are the highest-impact moves I should make in the next 90 days, and what questions should I be asking before I start? Be specific to my situation.</div>
+        <div class="ai-prompt-box" id="claude-prompt">I run T. Hall Hydraulics, a Mobile Hydraulics Repair business in Mansfield, TX. A free WanderBrief for T. Hall Hydraulics: fleet contracts, grants, TikTok growth, and your 90-day path to $50K/month. What are the highest-impact moves I should make in the next 90 days, and what questions should I be asking before I start? Be specific to my situation.</div>
         <button class="tm-copy-btn" onclick="tmCopyText('claude-prompt')">Copy prompt</button>
         <br><a href="https://claude.ai" target="_blank" class="ai-open-btn ai-open-claude" style="margin-top:10px;display:inline-block;">Open Claude &rarr;</a>
       </div>
@@ -2029,7 +2029,7 @@ document.getElementById('pw-input').focus();
       <div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--teal);margin-bottom:8px;">Share this toolkit</div>
       <h3 style="font-family:'Playfair Display',serif;color:var(--brown);font-size:1.05rem;margin:0 0 8px;">This page is yours — share it however makes sense</h3>
       <p style="font-size:13px;color:var(--text-mid);line-height:1.6;margin:0 0 14px;">If you find this useful, you are welcome to link to it from your site, share it with other business owners you know, or bookmark it for yourself. There is no login, no account, and no cost to access it. If you do share it and it ends up helping someone else, that is a good outcome — no credit needed.</p>
-      <div style="background:white;border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-family:monospace;font-size:13px;color:var(--text);word-break:break-all;overflow-wrap:anywhere;white-space:normal;" id="toolkit-url">https://thunderous-creponne-d99296.netlify.app</div>
+      <div style="background:white;border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-family:monospace;font-size:13px;color:var(--text);word-break:break-all;overflow-wrap:anywhere;white-space:normal;" id="toolkit-url">https://wanderingwithpride.github.io/tiaaw-hydraulics-resources/</div>
       <button class="tm-copy-btn" style="margin-top:8px;" onclick="tmCopyText('toolkit-url')">Copy link</button>
     </div>
 
@@ -2098,7 +2098,7 @@ function tmSubmitFeedback() {
   var status = document.getElementById('feedback-status');
   if (!txt) { status.textContent = 'Please add a note first.'; return; }
   status.textContent = 'Sending...';
-  fetch('https://growth-os-feedback.michael-eisinger.workers.dev/feedback', {
+  fetch('https://wanderbrief-feedback.michael-eisinger.workers.dev/feedback', {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
     body: JSON.stringify({
@@ -2288,7 +2288,7 @@ Opportunity:
 
 Your role:
 - Answer questions about this specific business, not generic advice
-- Reference the sections in this Growth OS page when relevant
+- Reference the sections in this WanderBrief page when relevant
 - Be direct, practical, and encouraging — no fluff
 - If you don't know something specific, say so and suggest how to find out
 - Keep responses to 3-5 sentences unless a longer answer is clearly needed
@@ -2995,7 +2995,7 @@ function tmPrintChecklist() {
     + '<p style="font-size:13px;color:#888;">Printed from your toolkit. Check off as you go.</p><ul>'
     + lines.map(function(l){ return '<li' + (l.startsWith('[x]') ? ' class="done"' : '') + '>'
       + l.replace(/^\[.\] /,'') + '</li>'; }).join('')
-    + '</ul><p style="font-size:12px;color:#aaa;margin-top:30px;">T. Hall Hydraulics Growth OS &mdash; built by Wandering With Pride</p>'
+    + '</ul><p style="font-size:12px;color:#aaa;margin-top:30px;">T. Hall Hydraulics WanderBrief &mdash; built by Wandering With Pride</p>'
     + '<button onclick="window.print()" style="background:#7A3010;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:14px;margin-top:10px;">Print this list</button>'
     + '</body></html>');
   win.document.close();
@@ -3744,6 +3744,67 @@ function tmFnavClose() {
   document.getElementById('tm-fnav-btn').setAttribute('aria-expanded', 'false');
 }
 </script>
+
+<!-- ── FEEDBACK WIDGET ──────────────────────────────────────────────────────── -->
+<div id="wb-feedback" style="position:fixed;bottom:20px;right:20px;z-index:9000;font-family:'Inter',sans-serif;">
+  <button id="wb-fb-toggle" onclick="wbFbOpen()" style="background:var(--brown,#2B7A7A);color:#fff;border:none;border-radius:50px;padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.18);display:flex;align-items:center;gap:7px;">
+    <span style="font-size:16px;">⭐</span> Rate this page
+  </button>
+  <div id="wb-fb-panel" style="display:none;position:absolute;bottom:48px;right:0;background:#fff;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.18);padding:20px;width:280px;">
+    <div style="font-weight:700;font-size:15px;margin-bottom:4px;color:var(--text,#1A2A2E);">Was this helpful?</div>
+    <div style="font-size:12px;color:#6B8890;margin-bottom:14px;">Your feedback helps us improve future pages.</div>
+    <div id="wb-stars" style="display:flex;gap:6px;margin-bottom:12px;font-size:28px;cursor:pointer;">
+      <span data-r="1" onclick="wbSetRating(1)">☆</span>
+      <span data-r="2" onclick="wbSetRating(2)">☆</span>
+      <span data-r="3" onclick="wbSetRating(3)">☆</span>
+      <span data-r="4" onclick="wbSetRating(4)">☆</span>
+      <span data-r="5" onclick="wbSetRating(5)">☆</span>
+    </div>
+    <textarea id="wb-comment" placeholder="Anything specific? (optional)" style="width:100%;border:1px solid #D8EEF5;border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;resize:none;outline:none;color:var(--text,#1A2A2E);" rows="2"></textarea>
+    <button id="wb-submit" onclick="wbSubmit()" style="margin-top:10px;width:100%;background:var(--brown,#2B7A7A);color:#fff;border:none;border-radius:8px;padding:9px;font-size:13px;font-weight:600;cursor:pointer;opacity:0.4;pointer-events:none;">Submit</button>
+    <div id="wb-thanks" style="display:none;text-align:center;padding:8px 0;color:var(--brown,#2B7A7A);font-weight:600;font-size:13px;">Thanks! 🙏</div>
+    <button onclick="wbFbClose()" style="position:absolute;top:10px;right:12px;background:none;border:none;font-size:18px;cursor:pointer;color:#6B8890;line-height:1;">×</button>
+  </div>
+</div>
+<script>
+(function(){
+  var WB_RATING = 0;
+  var WB_HANDLE = '@tiaaw_hydraulics';
+  var WB_FEEDBACK_URL = 'https://wanderbrief-feedback.michael-eisinger.workers.dev/feedback';
+
+  window.wbFbOpen = function() {
+    document.getElementById('wb-fb-panel').style.display = 'block';
+    document.getElementById('wb-fb-toggle').style.display = 'none';
+  };
+  window.wbFbClose = function() {
+    document.getElementById('wb-fb-panel').style.display = 'none';
+    document.getElementById('wb-fb-toggle').style.display = 'flex';
+  };
+  window.wbSetRating = function(r) {
+    WB_RATING = r;
+    var stars = document.querySelectorAll('#wb-stars span');
+    stars.forEach(function(s, i) { s.textContent = i < r ? '★' : '☆'; });
+    var btn = document.getElementById('wb-submit');
+    btn.style.opacity = '1'; btn.style.pointerEvents = 'auto';
+  };
+  window.wbSubmit = function() {
+    if (!WB_RATING) return;
+    var comment = document.getElementById('wb-comment').value.trim();
+    fetch(WB_FEEDBACK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ handle: WB_HANDLE, rating: WB_RATING, comment: comment || null })
+    }).catch(function(){});
+    document.getElementById('wb-submit').style.display = 'none';
+    document.getElementById('wb-thanks').style.display = 'block';
+    setTimeout(function() {
+      document.getElementById('wb-fb-panel').style.display = 'none';
+      document.getElementById('wb-fb-toggle').style.display = 'none';
+    }, 2000);
+  };
+})();
+</script>
+<!-- ─────────────────────────────────────────────────────────────────────────── -->
 
 </body>
 </html>
