@@ -2174,13 +2174,35 @@ ${progressStr}
 ${recentStr}
 ${numsStr}
 
-Your role:
+Canonical resource URLs — always use these when recommending actions:
+- Google Business Profile: https://business.google.com
+- Google Voice: https://voice.google.com
+- Kiva 0% microloan: https://www.kiva.org/borrow
+- Amber Grant for Women: https://ambergrantsforwomen.com
+- NGLCC (LGBTQ+ biz cert): https://www.nglcc.org
+- NMSDC (minority supplier): https://nmsdc.org
+- WBENC (women-owned cert): https://www.wbenc.org
+- TikTok Shop: https://seller-us.tiktok.com
+- Goldbelly vendor application: https://www.goldbelly.com/sell
+- Faire wholesale marketplace: https://www.faire.com/makers
+- Amazon Handmade: https://www.amazon.com/handmade/application
+- Square Online: https://squareup.com/us/en/online-store
+- Mansfield EDC (TX): https://www.mansfieldedc.com
+- Arizona SBDC: https://www.azsbdc.net
+- Maryland SBDC: https://mdsbdc.umd.edu
+
+Your role and HOW to respond:
 - Answer questions about this specific business — not generic advice.
-- Reference sections in this WanderBrief page when relevant (Phase 0, Timeline, Audit, Grants, Revenue Channels).
+- **When ${client.client_name} asks for a draft, email, script, caption, SEO meta, application answer, bio, cover letter, ad copy, or any kind of finished text — produce the COMPLETE finished artifact, ready to copy-paste. Do NOT output a prompt for another tool. You are the tool.** Include subject lines for emails, hashtags for social, signature blocks, everything she'd actually send.
+- **When she asks "how do I do X" — give step-by-step instructions with clickable URLs inline, not just abstract advice.** Each step: action verb + concrete URL when relevant.
+- Reference sections in this WanderBrief page when relevant (Phase 0, Timeline, Audit, Grants, Revenue Channels, Tools, Resources).
+- **Skip anything she's already checked off.** Never re-suggest a Phase 0 action marked done.
 - Be direct, practical, encouraging — no fluff. Tone: warm, generous, confident. Never marketing-speak.
+- For emails and scripts use clean prose, no markdown syntax. For walkthroughs/lists use Markdown (numbered lists, **bold**, [link text](url)).
 - If you don't know something specific, say so and suggest how to find out.
-- Keep responses to 3–5 sentences unless a longer answer is clearly needed.
-- When asked about Michael (who built this): He built this page as a free proof-of-concept. Reach him at 202-834-3330 or michael.eisinger@wanderingwithpride.com.
+- Default length: as long as the artifact needs. Short for Q&A, complete for drafts.
+- You remember prior turns in THIS conversation — she shouldn't have to repeat herself.
+- When asked about Michael: He built this page as a free proof-of-concept. Reach him at 202-834-3330 or michael.eisinger@wanderingwithpride.com.
 - If a question involves a crisis (health, safety, legal, mental health), gently point to a human professional.`;
 };
 
@@ -2460,15 +2482,53 @@ window.Closing = Closing;
 const { useState: useStateFC, useRef: useRefFC, useEffect: useEffectFC } = React;
 
 function FloatingChat({ client }) {
+  const chatKey = 'wb_chat_' + client.handle;
+  const sidKey = 'wb_sid_' + client.handle;
+  const greeting = { role:'assistant', content:`Hi — I've read your whole dossier. Ask about ${client.business_name} anytime. I remember our conversation across sessions.` };
+
   const [open, setOpen] = useStateFC(false);
   const [input, setInput] = useStateFC('');
   const [busy, setBusy] = useStateFC(false);
-  const [msgs, setMsgs] = useStateFC([
-    { role:'assistant', content:`Hi — I've read your whole dossier. Ask about ${client.business_name} anytime.` }
-  ]);
+  const [msgs, setMsgs] = useStateFC(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(chatKey) || 'null');
+      if (Array.isArray(saved) && saved.length) return saved;
+    } catch {}
+    return [greeting];
+  });
+  const [copiedIdx, setCopiedIdx] = useStateFC(null);
   const scrollRef = useRefFC(null);
-  const sessionRef = useRefFC('wbf-' + Math.random().toString(36).slice(2,10));
+  const sessionRef = useRefFC(null);
+  if (!sessionRef.current) {
+    try {
+      sessionRef.current = localStorage.getItem(sidKey) || ('wbf-' + Math.random().toString(36).slice(2,10));
+      localStorage.setItem(sidKey, sessionRef.current);
+    } catch { sessionRef.current = 'wbf-' + Math.random().toString(36).slice(2,10); }
+  }
   const [numbers] = window.useNumbers ? window.useNumbers() : [{}, ()=>{}];
+
+  // Persist messages on every change
+  useEffectFC(() => {
+    try { localStorage.setItem(chatKey, JSON.stringify(msgs)); } catch {}
+  }, [msgs]);
+
+  const clearChat = () => {
+    setMsgs([greeting]);
+    try {
+      localStorage.removeItem(chatKey);
+      const newSid = 'wbf-' + Math.random().toString(36).slice(2,10);
+      localStorage.setItem(sidKey, newSid);
+      sessionRef.current = newSid;
+    } catch {}
+  };
+
+  const copyMsg = async (content, idx) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedIdx(idx);
+      setTimeout(() => setCopiedIdx(null), 1600);
+    } catch {}
+  };
 
   useEffectFC(() => {
     if (open && scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -2561,12 +2621,19 @@ function FloatingChat({ client }) {
           }}>
             <div>
               <div style={{ fontFamily:'var(--ff-mono)', fontSize:10, letterSpacing:'0.14em', textTransform:'uppercase', color:'rgba(243,236,220,0.55)' }}>
-                Ask WanderBrief · Live
+                Ask WanderBrief · Live · {msgs.length - 1} msgs
               </div>
               <div className="display" style={{ fontSize:18, color:'var(--paper)' }}>
                 For {client.client_name}
               </div>
             </div>
+            <button onClick={clearChat} title="Clear conversation" style={{
+              background:'transparent', color:'rgba(243,236,220,0.55)',
+              border:'1px solid rgba(243,236,220,0.2)', borderRadius:6,
+              padding:'4px 10px', cursor:'pointer',
+              fontFamily:'var(--ff-mono)', fontSize:10, letterSpacing:'0.14em',
+              textTransform:'uppercase',
+            }}>New</button>
           </div>
 
           {/* Messages */}
@@ -2576,13 +2643,21 @@ function FloatingChat({ client }) {
                 <div style={{
                   fontFamily:'var(--ff-mono)', fontSize:9, letterSpacing:'0.14em',
                   textTransform:'uppercase', color:'rgba(243,236,220,0.5)', marginBottom:4,
+                  display:'flex', alignItems:'center', justifyContent:'space-between', gap:8,
                 }}>
-                  {m.role==='user' ? 'You' : 'WanderBrief'}{m.fallback ? ' · fallback' : ''}{m.error ? ' · error' : ''}
+                  <span>{m.role==='user' ? 'You' : 'WanderBrief'}{m.fallback ? ' · fallback' : ''}{m.error ? ' · error' : ''}</span>
+                  {m.role==='assistant' && i > 0 && (
+                    <button onClick={()=>copyMsg(m.content, i)} title="Copy response" style={{
+                      background:'transparent', border:'1px solid rgba(243,236,220,0.22)',
+                      color:'rgba(243,236,220,0.7)', padding:'2px 8px', borderRadius:4,
+                      fontFamily:'var(--ff-mono)', fontSize:9, letterSpacing:'0.12em',
+                      textTransform:'uppercase', cursor:'pointer',
+                    }}>{copiedIdx === i ? '✓ Copied' : 'Copy'}</button>
+                  )}
                 </div>
                 <div style={{
                   fontSize:14, lineHeight:1.6, whiteSpace:'pre-wrap',
-                  fontFamily: m.role==='assistant' ? 'var(--ff-display)' : 'var(--ff-body)',
-                  fontStyle: m.role==='assistant' ? 'italic' : 'normal',
+                  fontFamily: m.role==='assistant' ? 'var(--ff-body)' : 'var(--ff-body)',
                   color: m.role==='user' ? 'rgba(243,236,220,0.88)' : 'var(--paper)',
                   background: m.role==='user' ? 'rgba(243,236,220,0.08)' : 'transparent',
                   padding: m.role==='user' ? '8px 12px' : 0, borderRadius: m.role==='user' ? 6 : 0,
