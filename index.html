@@ -2205,7 +2205,7 @@ function Chatbot({ client }) {
         body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error('HTTP ' + res.status);
-      // Stream body
+      // Read full body — Worker may stream SSE or return one JSON blob.
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let acc = '';
@@ -2214,9 +2214,31 @@ function Chatbot({ client }) {
         if (done) break;
         const chunk = decoder.decode(value, { stream: true });
         acc += chunk;
-        setStreaming(acc);
+        // Only paint streaming preview if response isn't wrapped JSON
+        if (!acc.trim().startsWith('{')) setStreaming(acc);
       }
-      setMessages(m => [...m, { role:'assistant', content: acc || '(no response)' }]);
+      // Extract plain text from common response shapes
+      const extractText = (raw) => {
+        const s = (raw || '').trim();
+        if (!s.startsWith('{') && !s.startsWith('[')) return raw; // already plain text
+        try {
+          const d = JSON.parse(s);
+          // Gemini: candidates[0].content.parts[0].text
+          const g = d?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (g) return g;
+          // OpenAI-ish: choices[0].message.content
+          const o = d?.choices?.[0]?.message?.content;
+          if (o) return o;
+          // Plain { text: "..." }
+          if (typeof d?.text === 'string') return d.text;
+          // Anthropic: content[0].text
+          const a = Array.isArray(d?.content) ? d.content.map(p => p.text || '').join('') : null;
+          if (a) return a;
+          return raw;
+        } catch { return raw; }
+      };
+      const text = extractText(acc) || '(no response)';
+      setMessages(m => [...m, { role:'assistant', content: text }]);
       setStreaming('');
     } catch (e) {
       const msg = String(e.message || e);
