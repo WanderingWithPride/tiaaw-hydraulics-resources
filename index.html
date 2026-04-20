@@ -124,26 +124,9 @@
 
 <div id="root"></div>
 
-<!-- Persistent "Ask" floating action button — visible from anywhere, jumps to chatbot -->
-<button id="wb-ask-fab" type="button" aria-label="Ask WanderBrief" onclick="(function(){var el=document.getElementById('chat');if(el){el.scrollIntoView({behavior:'smooth',block:'start'});setTimeout(function(){var i=el.querySelector('input[type=text]');if(i)i.focus();},700);}})()">
-  <span aria-hidden="true" style="font-size:18px;line-height:1">✦</span>
-  <span>Ask WanderBrief</span>
-</button>
+<!-- FloatingChat (FAB + drawer) is a React component mounted by app.jsx — no static FAB needed -->
 <style>
-  #wb-ask-fab {
-    position: fixed; right: 22px; bottom: 22px; z-index: 90;
-    display: inline-flex; align-items: center; gap: 10px;
-    background: var(--ink); color: var(--paper);
-    border: 1px solid var(--ink); border-radius: 999px;
-    padding: 12px 18px;
-    font-family: var(--ff-mono); font-size: 12px;
-    letter-spacing: 0.14em; text-transform: uppercase;
-    cursor: pointer; box-shadow: 0 12px 32px rgba(17,17,14,0.28);
-    transition: transform 0.2s var(--ease), background 0.2s var(--ease);
-  }
-  #wb-ask-fab:hover { transform: translateY(-2px); background: var(--accent); color: var(--paper); border-color: var(--accent); }
-  @media print { #wb-ask-fab { display: none !important; } }
-  @media (max-width: 640px) { #wb-ask-fab { padding: 10px 14px; font-size: 11px; } }
+  @media print { [role="dialog"], button[aria-label="Ask WanderBrief"] { display: none !important; } }
 </style>
 
 <!-- Client config (single-client for this page) -->
@@ -2121,6 +2104,25 @@ window.AiTools = AiTools;
 /* global React */
 const { useState: useStateCB, useRef: useRefCB, useEffect: useEffectCB } = React;
 
+// Reads completion state from localStorage.
+// Phase 0: wb_p0_<handle> = { "0": true, "2": true } (keys are indexes into phase0_actions)
+// Timeline: wb_tl_<handle> = { "w1_0": true, ... } (keys are item ids)
+window.WB_readProgress = function(client) {
+  const out = { phase0_done: [], phase0_todo: [], phase0_done_labels: [], phase0_todo_labels: [], recent_updates: client.recent_updates || [] };
+  try {
+    const p0 = JSON.parse(localStorage.getItem('wb_p0_'+client.handle) || '{}');
+    (client.phase0_actions || []).forEach((a, i) => {
+      if (p0[i]) { out.phase0_done.push(i); out.phase0_done_labels.push(a); }
+      else       { out.phase0_todo.push(i); out.phase0_todo_labels.push(a); }
+    });
+  } catch {}
+  try {
+    const tl = JSON.parse(localStorage.getItem('wb_tl_'+client.handle) || '{}');
+    out.timeline_done_count = Object.values(tl).filter(Boolean).length;
+  } catch { out.timeline_done_count = 0; }
+  return out;
+};
+
 // Builds the per-client system prompt in the same shape as the production template.
 window.WB_buildSystemPrompt = function(client, numbers) {
   const certs = [
@@ -2133,6 +2135,14 @@ window.WB_buildSystemPrompt = function(client, numbers) {
 
   const numsStr = numbers && Object.keys(numbers).length
     ? '\nCurrent numbers (user-entered):\n' + Object.entries(numbers).map(([k,v])=>`- ${k}: ${v}`).join('\n')
+    : '';
+
+  const progress = window.WB_readProgress(client);
+  const progressStr = progress.phase0_done.length
+    ? `\nProgress so far — DO NOT recommend things already done:\nDone (${progress.phase0_done.length}/${(client.phase0_actions||[]).length}): ${progress.phase0_done_labels.join(' · ')}\nStill outstanding: ${progress.phase0_todo_labels.join(' · ') || '(all done)'}\nTimeline tasks checked off: ${progress.timeline_done_count}`
+    : `\nProgress: nothing checked off yet — recommend starting with the outstanding Phase 0 list below.`;
+  const recentStr = (progress.recent_updates || []).length
+    ? `\nRecent updates the client told us about (apply these as current truth, do not re-suggest):\n${progress.recent_updates.map(u=>`- [${u.type}] ${u.note} (${u.date})`).join('\n')}`
     : '';
 
   return `You are a growth-strategy AI assistant for ${client.business_name}, a ${client.business_type} business in ${client.city}, ${client.state}. The owner is ${client.client_name}.
@@ -2160,6 +2170,8 @@ Verdict (the one-line strategic POV in this dossier):
 
 Phase 0 actions (what ${client.client_name} should do this week):
 ${(client.phase0_actions||[]).map((a,i)=>`${i+1}. ${a}`).join('\n')}
+${progressStr}
+${recentStr}
 ${numsStr}
 
 Your role:
@@ -2438,6 +2450,181 @@ function Closing({ client }) {
   );
 }
 window.Closing = Closing;
+
+</script>
+
+<script type="text/babel" data-component="floating-chat.jsx">
+/* global React */
+// Floating chat drawer — available on every screen via FAB.
+// Reuses WB_buildSystemPrompt and talks to the same Worker endpoint.
+const { useState: useStateFC, useRef: useRefFC, useEffect: useEffectFC } = React;
+
+function FloatingChat({ client }) {
+  const [open, setOpen] = useStateFC(false);
+  const [input, setInput] = useStateFC('');
+  const [busy, setBusy] = useStateFC(false);
+  const [msgs, setMsgs] = useStateFC([
+    { role:'assistant', content:`Hi — I've read your whole dossier. Ask about ${client.business_name} anytime.` }
+  ]);
+  const scrollRef = useRefFC(null);
+  const sessionRef = useRefFC('wbf-' + Math.random().toString(36).slice(2,10));
+  const [numbers] = window.useNumbers ? window.useNumbers() : [{}, ()=>{}];
+
+  useEffectFC(() => {
+    if (open && scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [msgs, busy, open]);
+
+  const extractText = (raw) => {
+    const s = (raw||'').trim();
+    if (!s.startsWith('{') && !s.startsWith('[')) return raw;
+    try {
+      const d = JSON.parse(s);
+      return d?.candidates?.[0]?.content?.parts?.[0]?.text
+        || d?.choices?.[0]?.message?.content
+        || (typeof d?.text === 'string' ? d.text : null)
+        || (Array.isArray(d?.content) ? d.content.map(p=>p.text||'').join('') : null)
+        || raw;
+    } catch { return raw; }
+  };
+
+  const ask = async (q) => {
+    if (!q.trim() || busy) return;
+    const turn = { role:'user', content:q };
+    const convo = [...msgs, turn];
+    setMsgs(convo);
+    setInput('');
+    setBusy(true);
+
+    const system = window.WB_buildSystemPrompt(client, numbers);
+    const contextualized = `[Dossier context — use this to answer, do not repeat it back]\n${system}\n[/Dossier context]\n\nMy question: ${q}`;
+    const apiMsgs = [...convo.slice(0,-1), { role:'user', content: contextualized }];
+
+    try {
+      const res = await fetch('https://tm-ai.michael-eisinger.workers.dev', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ system, messages: apiMsgs, session_id: sessionRef.current }),
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const raw = await res.text();
+      const text = extractText(raw) || '(no response)';
+      setMsgs(m => [...m, { role:'assistant', content: text }]);
+    } catch (e) {
+      try {
+        const fallback = await window.claude.complete({
+          messages: [{ role:'user', content: system + '\n\nUser: ' + q + '\n\nAnswer in 3-5 sentences.' }]
+        });
+        setMsgs(m => [...m, { role:'assistant', content: fallback, fallback:true }]);
+      } catch {
+        setMsgs(m => [...m, { role:'assistant', content: `Couldn't reach the AI just now — try again in a moment.`, error:true }]);
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <React.Fragment>
+      {/* FAB — always visible */}
+      <button aria-label="Ask WanderBrief" onClick={() => setOpen(o => !o)} style={{
+        position:'fixed', right:22, bottom:22, zIndex:95,
+        display:'inline-flex', alignItems:'center', gap:10,
+        background: open ? 'var(--accent)' : 'var(--ink)',
+        color:'var(--paper)', border:'1px solid ' + (open ? 'var(--accent)' : 'var(--ink)'),
+        borderRadius:999, padding:'12px 18px',
+        fontFamily:'var(--ff-mono)', fontSize:12,
+        letterSpacing:'0.14em', textTransform:'uppercase',
+        cursor:'pointer', boxShadow:'0 12px 32px rgba(17,17,14,0.28)',
+        transition:'transform 0.2s var(--ease), background 0.2s var(--ease)',
+      }}>
+        <span style={{ fontSize:18, lineHeight:1 }}>{open ? '×' : '✦'}</span>
+        <span>{open ? 'Close' : 'Ask WanderBrief'}</span>
+      </button>
+
+      {/* Drawer */}
+      {open && (
+        <div role="dialog" aria-label="Chat with WanderBrief" style={{
+          position:'fixed', right:22, bottom:78, zIndex:94,
+          width:'min(calc(100vw - 44px), 420px)',
+          maxHeight:'calc(100vh - 120px)',
+          background:'var(--ink)', color:'var(--paper)',
+          border:'1px solid var(--rule)', borderRadius:12,
+          boxShadow:'0 24px 60px rgba(17,17,14,0.45)',
+          display:'flex', flexDirection:'column',
+          fontFamily:'var(--ff-body)',
+          overflow:'hidden',
+        }}>
+          {/* Header */}
+          <div style={{
+            padding:'14px 18px', borderBottom:'1px solid rgba(243,236,220,0.15)',
+            display:'flex', alignItems:'center', justifyContent:'space-between',
+          }}>
+            <div>
+              <div style={{ fontFamily:'var(--ff-mono)', fontSize:10, letterSpacing:'0.14em', textTransform:'uppercase', color:'rgba(243,236,220,0.55)' }}>
+                Ask WanderBrief · Live
+              </div>
+              <div className="display" style={{ fontSize:18, color:'var(--paper)' }}>
+                For {client.client_name}
+              </div>
+            </div>
+          </div>
+
+          {/* Messages */}
+          <div ref={scrollRef} style={{ flex:1, overflowY:'auto', padding:'14px 18px', minHeight:200 }}>
+            {msgs.map((m, i) => (
+              <div key={i} style={{ marginBottom:14, maxWidth: m.role==='user' ? '85%' : '100%', marginLeft: m.role==='user' ? 'auto' : 0 }}>
+                <div style={{
+                  fontFamily:'var(--ff-mono)', fontSize:9, letterSpacing:'0.14em',
+                  textTransform:'uppercase', color:'rgba(243,236,220,0.5)', marginBottom:4,
+                }}>
+                  {m.role==='user' ? 'You' : 'WanderBrief'}{m.fallback ? ' · fallback' : ''}{m.error ? ' · error' : ''}
+                </div>
+                <div style={{
+                  fontSize:14, lineHeight:1.6, whiteSpace:'pre-wrap',
+                  fontFamily: m.role==='assistant' ? 'var(--ff-display)' : 'var(--ff-body)',
+                  fontStyle: m.role==='assistant' ? 'italic' : 'normal',
+                  color: m.role==='user' ? 'rgba(243,236,220,0.88)' : 'var(--paper)',
+                  background: m.role==='user' ? 'rgba(243,236,220,0.08)' : 'transparent',
+                  padding: m.role==='user' ? '8px 12px' : 0, borderRadius: m.role==='user' ? 6 : 0,
+                }}>{m.content}</div>
+              </div>
+            ))}
+            {busy && (
+              <div style={{ fontFamily:'var(--ff-mono)', fontSize:11, color:'rgba(243,236,220,0.5)', letterSpacing:'0.1em' }}>
+                thinking…
+              </div>
+            )}
+          </div>
+
+          {/* Input */}
+          <form onSubmit={(e)=>{e.preventDefault(); ask(input);}} style={{
+            display:'flex', gap:8, padding:'12px 14px',
+            borderTop:'1px solid rgba(243,236,220,0.15)',
+          }}>
+            <input value={input} onChange={(e)=>setInput(e.target.value)}
+              placeholder={`Ask about ${client.business_name}…`}
+              style={{
+                flex:1, background:'transparent', border:'1px solid rgba(243,236,220,0.22)',
+                outline:'none', color:'var(--paper)',
+                fontFamily:'var(--ff-body)', fontSize:14,
+                padding:'8px 10px', borderRadius:6,
+              }}
+            />
+            <button type="submit" disabled={busy} style={{
+              background:'var(--accent)', color:'var(--paper)', border:0,
+              padding:'8px 14px', fontFamily:'var(--ff-mono)', fontSize:11,
+              letterSpacing:'0.14em', textTransform:'uppercase',
+              cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.5 : 1,
+              borderRadius:6,
+            }}>{busy ? '…' : 'Ask →'}</button>
+          </form>
+        </div>
+      )}
+    </React.Fragment>
+  );
+}
+
+window.FloatingChat = FloatingChat;
 
 </script>
 
